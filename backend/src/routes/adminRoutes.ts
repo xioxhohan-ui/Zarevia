@@ -186,4 +186,22 @@ router.put('/settings', async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
+// @route   GET /api/admin/media
+// Fetch all Media Library entries
+router.get('/media', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const media = await prisma.mediaLibrary.findMany({
+      orderBy: { uploadedAt: 'desc' },
+      include: {
+        uploadedBy: {
+          select: { name: true, email: true }
+        }
+      }
+    });
+    return res.json(media);
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

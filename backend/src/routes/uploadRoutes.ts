@@ -4,7 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { ApiError } from '../middleware/error';
-import { isFirebaseReady, uploadToFirebase } from '../lib/firebase';
+import { isFirebaseReady, uploadToFirebase, deleteFromFirebaseStorage } from '../lib/firebase';
+import prisma from '../lib/prisma';
 
 const router = Router();
 
@@ -59,11 +60,65 @@ router.post('/upload', authenticateToken, requireRole(['SUPERADMIN', 'ADMIN', 'M
       console.log(`[Local Upload] Saved file: ${filename}`);
     }
 
+    // 3. Create MediaLibrary metadata record in PostgreSQL
+    const media = await prisma.mediaLibrary.create({
+      data: {
+        fileName: req.file.originalname,
+        storagePath: isFirebaseReady ? `uploads/${filename}` : `/uploads/${filename}`,
+        downloadUrl: fileUrl,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        uploadedById: req.user?.id || null,
+        folder: 'uploads',
+        status: 'ACTIVE',
+      }
+    });
+
     return res.json({
       url: fileUrl,
       filename,
       size: req.file.size,
+      mediaId: media.id,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// @route   DELETE /api/upload/:id
+// Authorized for admins/managers/superadmins
+router.delete('/upload/:id', authenticateToken, requireRole(['SUPERADMIN', 'ADMIN', 'MANAGER']), async (req: any, res: Response, next) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the record in PostgreSQL
+    const media = await prisma.mediaLibrary.findUnique({
+      where: { id }
+    });
+    
+    if (!media) {
+      throw new ApiError(404, 'Media file not found');
+    }
+    
+    if (isFirebaseReady && media.storagePath.startsWith('uploads/')) {
+      // 1. Delete from Firebase Storage
+      await deleteFromFirebaseStorage(media.storagePath);
+    } else {
+      // 2. Delete from local disk
+      const cleanPath = media.storagePath.replace(/^\//, ''); // Strip leading slash if present
+      const filePath = path.join(process.cwd(), 'public', cleanPath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`[Local Upload] Deleted local file: ${media.storagePath}`);
+      }
+    }
+    
+    // 3. Delete the metadata record in PostgreSQL (or soft delete)
+    await prisma.mediaLibrary.delete({
+      where: { id }
+    });
+    
+    return res.json({ success: true, message: 'Media file deleted successfully' });
   } catch (err) {
     next(err);
   }

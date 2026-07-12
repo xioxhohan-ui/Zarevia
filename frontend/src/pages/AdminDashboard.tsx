@@ -13,19 +13,21 @@ import {
   Upload, 
   TrendingUp,
   Inbox,
-  AlertCircle
+  AlertCircle,
+  Image
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  const [activeTab, setActiveTab] = useState<'analytics' | 'orders' | 'products' | 'promotions' | 'settings'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'orders' | 'products' | 'promotions' | 'settings' | 'media'>('analytics');
   const [isLoading, setIsLoading] = useState(true);
 
   // Promotions/Hero states
   const [banners, setBanners] = useState<any[]>([]);
   const [promoCards, setPromoCards] = useState<any[]>([]);
+  const [mediaList, setMediaList] = useState<any[]>([]);
   const [isBannerModalOpen, setBannerModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<any | null>(null);
   const [bannerForm, setBannerForm] = useState({
@@ -218,6 +220,17 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleDeleteMedia = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this media file? This will remove it from Firebase.')) return;
+    try {
+      await api.delete(`/upload/${id}`);
+      alert('Media deleted successfully!');
+      fetchAdminData();
+    } catch (err) {
+      alert('Failed to delete media file.');
+    }
+  };
+
   // Analytics states
   const [stats, setStats] = useState<any>({ totalRevenue: 0, totalOrders: 0, averageOrderValue: 0, monthlySales: [] });
   const [topProducts, setTopProducts] = useState<any[]>([]);
@@ -320,6 +333,9 @@ export const AdminDashboard: React.FC = () => {
         if (Object.keys(setRes.data).length > 0) {
           setSiteSettings(setRes.data);
         }
+      } else if (activeTab === 'media') {
+        const mediaRes = await api.get('/admin/media');
+        setMediaList(mediaRes.data);
       }
     } catch (err) {
       console.error('Error loading admin panel resources:', err);
@@ -529,6 +545,14 @@ export const AdminDashboard: React.FC = () => {
           }`}
         >
           <Settings size={16} /> Site Config
+        </button>
+        <button 
+          onClick={() => setActiveTab('media')}
+          className={`pb-3 transition-colors flex items-center gap-1.5 ${
+            activeTab === 'media' ? 'text-primary border-b-2 border-primary' : 'text-neutral-500 hover:text-primary'
+          }`}
+        >
+          <Image size={16} /> Media Library
         </button>
       </div>
 
@@ -1815,6 +1839,69 @@ export const AdminDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================== */}
+      {/* TAB 5: MEDIA LIBRARY                 */}
+      {/* ===================================== */}
+      {activeTab === 'media' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center border-b border-neutral-100 pb-3">
+            <div>
+              <h2 className="text-lg font-heading font-extrabold text-charcoal">Media Library</h2>
+              <p className="text-xs text-neutral-400">Manage all images and assets uploaded to Firebase Storage.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {mediaList.map((media) => {
+              const isImage = media.mimeType?.startsWith('image/');
+              const sizeKB = (media.fileSize / 1024).toFixed(1);
+              return (
+                <div key={media.id} className="bg-white border border-neutral-100 rounded-xl overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow">
+                  <div className="aspect-square bg-neutral-50 relative flex items-center justify-center border-b border-neutral-100 overflow-hidden">
+                    {isImage ? (
+                      <img src={media.downloadUrl} alt={media.fileName} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                    ) : (
+                      <span className="text-xs font-bold text-neutral-400 uppercase">{media.mimeType?.split('/')[1] || 'File'}</span>
+                    )}
+                    <button 
+                      onClick={() => handleDeleteMedia(media.id)}
+                      className="absolute top-2 right-2 p-1.5 bg-white/80 hover:bg-red-50 text-neutral-500 hover:text-red-500 rounded-lg shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                  <div className="p-3 flex-grow flex flex-col justify-between text-[10px] space-y-1">
+                    <div>
+                      <p className="font-bold text-neutral-800 truncate" title={media.fileName}>{media.fileName}</p>
+                      <p className="text-neutral-400">{sizeKB} KB • {media.mimeType?.split('/')[1]}</p>
+                      {media.uploadedBy && (
+                        <p className="text-neutral-400 truncate">By: {media.uploadedBy.name}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(media.downloadUrl);
+                        alert('Download URL copied to clipboard!');
+                      }}
+                      className="w-full py-1 text-center bg-neutral-50 hover:bg-primary/10 hover:text-primary border border-neutral-100 rounded text-[9px] font-semibold transition-colors mt-2"
+                    >
+                      Copy Link URL
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {mediaList.length === 0 && (
+              <div className="col-span-full text-center py-20 text-neutral-400">
+                <p className="font-semibold">No uploads found in the Media Library.</p>
+                <p className="text-xs">Any files uploaded during product, card, or banner creation will automatically display here.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -56,6 +56,7 @@ model User {
   cart          Cart[]
   reviews       Review[]
   auditLogs     AuditLog[]
+  uploads       MediaLibrary[] @relation("UserUploads")
 }
 
 model Address {
@@ -368,4 +369,22 @@ model PromoCard {
   endDate       DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+model MediaLibrary {
+  id           String   @id @default(uuid())
+  fileName     String
+  storagePath  String
+  downloadUrl  String
+  mimeType     String
+  fileSize     Int
+  width        Int?
+  height       Int?
+  uploadedById String?
+  uploadedBy   User?    @relation("UserUploads", fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+  folder       String?  @default("uploads")
+  usageCount   Int      @default(0)
+  status       String   @default("ACTIVE") // ACTIVE, SOFT_DELETED
+  deletedAt    DateTime?
 }

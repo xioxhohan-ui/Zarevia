@@ -87,3 +87,17 @@ export const deleteFromFirebase = async (path: string) => {
     console.error(`[Firebase DB] Delete error at path ${path}:`, err);
   }
 };
+
+/**
+ * Deletes a file from Firebase Cloud Storage bucket.
+ */
+export const deleteFromFirebaseStorage = async (storagePath: string) => {
+  if (!isFirebaseReady || !bucket) return;
+  try {
+    const file = bucket.file(storagePath);
+    await file.delete();
+    console.log(`[Firebase Storage] Deleted file: ${storagePath}`);
+  } catch (err) {
+    console.error(`[Firebase Storage] Failed to delete file ${storagePath}:`, err);
+  }
+};
