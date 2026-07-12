@@ -5,8 +5,14 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// ── Step 1: Load .env ────────────────────────────────────────────────────────
 dotenv.config();
+
+// ── Step 2: Validate every required environment variable at startup ──────────
+// This must run BEFORE importing any module that reads process.env (Firebase,
+// Prisma, JWT, etc.) so that a clear diagnostic is printed on misconfiguration.
+import { validateEnv } from './lib/envValidator';
+validateEnv();
 
 // Import Routes & Middlewares
 import authRoutes from './routes/authRoutes';
