@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
 export async function POST(request: Request) {
   try {
@@ -11,28 +9,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Convert file to buffer
+    // ⚠️ Vercel serverless functions run on a read-only filesystem.
+    // File uploads from this Next.js app are not persisted across requests.
+    // For production file uploads, use the /backend Express API which
+    // routes uploads through Firebase Cloud Storage.
+    // This endpoint returns a data URL so existing flows don't break.
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const base64 = Buffer.from(bytes).toString('base64');
+    const dataUrl = `data:${file.type};base64,${base64}`;
 
-    // Create uploads directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    // Generate safe unique filename
-    const sanitizedFilename = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const filepath = path.join(uploadDir, sanitizedFilename);
-
-    // Write file to filesystem
-    fs.writeFileSync(filepath, buffer);
-
-    // Return the public URL path
-    return NextResponse.json({ url: `/uploads/${sanitizedFilename}` });
+    return NextResponse.json({
+      url: dataUrl,
+      filename: file.name,
+      size: file.size,
+      note: 'File stored as data URL. For persistent storage, use the backend Firebase upload endpoint.',
+    });
   } catch (err) {
     console.error('File upload error:', err);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }
+
 export const dynamic = 'force-dynamic';
