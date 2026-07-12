@@ -1,0 +1,39 @@
+You are Antigravity, a professional AI coding assistant. 
+
+Your task is to build a high-end, responsive, and aesthetic e-commerce web application for a Women's Shoe Shop Center, which is a master clone of "https://myrobd.com/". The entire website (frontend catalog and backend resources) must be fully controlled via a custom admin panel at `/shakil` using the password `rifat991`.
+
+## Technical & Architecture Guidelines
+1. **Core Framework**: Build the web application using Next.js App Router (TypeScript) for a unified full-stack codebase.
+2. **Styling System**: Use Vanilla CSS (via CSS Modules or global stylesheet variables) for pixel-perfect alignment and light loading speeds. The UI must feel premium, using Outfit/Inter typography, clean margins, warm beige/off-white backgrounds (`#faf6f3`), deep charcoal text (`#1c1917`), and a vibrant coral-pink brand color (`#f23086`).
+3. **Database Layer**: Use a local, file-based JSON database (`db.json`) at the project root with reading/writing interfaces. The database should automatically seed itself with realistic product entries (Name, Price, Discounted Price, sizes 36-41, colors, collection tags, images, and descriptions) and default navbar links on first launch.
+4. **Local Uploads**: Implement a local file upload API (`/api/upload`) using `FormData` to write uploaded product images directly to `/public/uploads/` and return public URLs.
+
+## Storefront Requirements
+1. **Homepage (`/`)**:
+   - Announcement bar fetching dynamic marketing copy from settings.
+   - High-end hero banner section showcasing collections with a call-to-action button.
+   - Horizontal sliding bar of category circles (Heels, Flats, Mules, Boston, etc.) linking to respective collections.
+   - Featured grids for "Best Selling" and "SALE Clearance" shoes.
+   - Accordion section detailing sizing guides, 3-day exchange policy, and shipping info.
+   - Footer displaying quick links, return instructions, hotline support, and security assurances.
+2. **Navbar Shell**:
+   - Dynamic navbar loading navigation links directly from database configurations.
+   - Interactive search-in-header bar matching query filters in real-time.
+   - Header shopping cart button containing count badge, opening a sliding drawer.
+   - Slide-out Cart Drawer displaying selected items, quantity controls, and a quick nested Cash on Delivery checkout form (Name, Phone, Address, District).
+3. **Collections Page (`/collections/[slug]`)**:
+   - Category listing grid displaying filtered products based on url slug (e.g. `all-shoes`, `sale`, `best-selling`, `heel`, etc.).
+   - Interactive client-side filters (by shoe size, in-stock availability) and sorting (Price: Low-High, Price: High-Low, New Arrivals).
+4. **Product Details Page (`/products/[slug]`)**:
+   - Split grid display: Multi-image thumbnail gallery on the left, purchase panel on the right.
+   - Interactive Size (36-41) and Color selector buttons.
+   - Integrated Cash on Delivery Order Form directly on the page, computing billing totals, shipping fees, and collecting buyer credentials.
+   - Collapsible drop-down details for Shipping and Exchange policies.
+
+## Custom Admin Panel (`/shakil`)
+- Accessible under a secure password authentication route (`pass: rifat991`).
+- Multi-tabbed dashboard interface:
+  1. **Products Catalog**: Full table view of active shoes. Supports adding new shoes, editing details, toggling stock availability, selecting collections, and uploading images.
+  2. **Navbar Menu Editor**: Dynamically add, remove, edit, or reorganize navbar links, titles, and routing paths.
+  3. **Orders Tracker**: Logs incoming purchases, showing customer name, hotline numbers, shipping addresses, items, and billing details. Includes a status dropdown (Pending, Shipped, Delivered, Cancelled) to save status updates.
+  4. **Site Configurations**: Live panel to change the website name, top promo bar text, and shipping fees (inside vs. outside Dhaka).

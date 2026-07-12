@@ -1,0 +1,371 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RoleName {
+  SUPERADMIN
+  ADMIN
+  MANAGER
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  PACKED
+  SHIPPING
+  DELIVERED
+  CANCELLED
+  RETURNED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED
+  FREE_SHIPPING
+  BOGO
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  role          RoleName       @default(CUSTOMER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  addresses     Address[]
+  orders        Order[]
+  wishlist      Wishlist[]
+  cart          Cart[]
+  reviews       Review[]
+  auditLogs     AuditLog[]
+}
+
+model Address {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           String   // "shipping" or "billing"
+  fullName       String
+  phone          String
+  streetAddress  String
+  apartment      String?
+  city           String
+  district       String   // e.g. "Dhaka", "Outside Dhaka"
+  zipCode        String?
+  country        String   @default("Bangladesh")
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  
+  orders         Order[]  @relation("ShippingAddress")
+}
+
+model Category {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  slug         String    @unique
+  bannerUrl    String?
+  thumbnailUrl String?
+  metaTitle    String?
+  metaDesc     String?
+  isActive     Boolean   @default(true)
+  isFeatured   Boolean   @default(false)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  products     Product[]
+}
+
+model Product {
+  id            String         @id @default(uuid())
+  name          String
+  slug          String         @unique
+  price         Decimal        @db.Decimal(10, 2)
+  discountPrice Decimal?       @db.Decimal(10, 2)
+  sku           String         @unique
+  barcode       String?
+  weight        Float?         // in kg
+  description   String         @db.Text
+  shortDesc     String?        @db.Text
+  specifications Json?         // Key-value pairs
+  material      String?
+  status        String         @default("DRAFT") // DRAFT, PUBLISHED, HIDDEN
+  isFeatured    Boolean        @default(false)
+  isTrending    Boolean        @default(false)
+  isBestSeller  Boolean        @default(false)
+  
+  // SEO
+  seoTitle      String?
+  seoDesc       String?
+  ogImage       String?
+  
+  categoryId    String
+  category      Category       @relation(fields: [categoryId], references: [id])
+  variants      Variant[]
+  images        ProductImage[]
+  reviews       Review[]
+  wishlists     Wishlist[]
+  cartItems     Cart[]
+  
+  // Relations for related products (self-relation)
+  relatedTo     Product[]      @relation("RelatedProducts")
+  relatedFrom   Product[]      @relation("RelatedProducts")
+  
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Variant {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size        String   // "36", "37", "38", "39", "40", "41"
+  color       String   // hex or name
+  stock       Int      @default(0)
+  sku         String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  orderItems  OrderItem[]
+  cartItems   Cart[]
+  invHistory  InventoryHistory[]
+}
+
+model InventoryHistory {
+  id          String   @id @default(uuid())
+  variantId   String
+  variant     Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  changeQty   Int      // positive or negative
+  reason      String   // "PURCHASE", "RESTOCK", "MANUAL_ADJUSTMENT"
+  createdAt   DateTime @default(now())
+}
+
+model Coupon {
+  id             String     @id @default(uuid())
+  code           String     @unique
+  type           CouponType
+  value          Decimal    @db.Decimal(10, 2)
+  minPurchase    Decimal?   @db.Decimal(10, 2)
+  usageLimit     Int?
+  usedCount      Int        @default(0)
+  expiryDate     DateTime?
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  
+  orders         Order[]
+}
+
+model Order {
+  id                String       @id @default(uuid())
+  orderNumber       String       @unique
+  userId            String?
+  user              User?        @relation(fields: [userId], references: [id])
+  guestEmail        String?
+  guestPhone        String?
+  shippingAddressId String
+  shippingAddress   Address      @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  
+  status            OrderStatus  @default(PENDING)
+  paymentStatus     PaymentStatus @default(PENDING)
+  paymentMethod     String       // "COD", "STRIPE", "BKASH", "NAGAD"
+  
+  subtotal          Decimal      @db.Decimal(10, 2)
+  tax               Decimal      @db.Decimal(10, 2)
+  shippingFee       Decimal      @db.Decimal(10, 2)
+  discount          Decimal      @default(0) @db.Decimal(10, 2)
+  totalAmount       Decimal      @db.Decimal(10, 2)
+  
+  couponId          String?
+  coupon            Coupon?      @relation(fields: [couponId], references: [id])
+  
+  trackingNumber    String?
+  invoiceUrl        String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  items             OrderItem[]
+  payments          Payment[]
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId String
+  variant   Variant  @relation(fields: [variantId], references: [id])
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status        PaymentStatus
+  gateway       String        // "STRIPE", "BKASH", etc.
+  transactionId String        @unique
+  amount        Decimal       @db.Decimal(10, 2)
+  rawResponse   Json?
+  createdAt     DateTime      @default(now())
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating     Int      // 1 to 5
+  comment    String?  @db.Text
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String
+  variant   Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int
+  createdAt DateTime @default(now())
+}
+
+model Blog {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  content     String   @db.Text
+  bannerUrl   String?
+  metaTitle   String?
+  metaDesc    String?
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Page {
+  id        String   @id @default(uuid())
+  title     String
+  slug      String   @unique
+  content   String   @db.Text
+  metaTitle String?
+  metaDesc  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Menu {
+  id         String   @id @default(uuid())
+  label      String
+  url        String
+  order      Int      @default(0)
+  parentId   String?
+  icon       String?
+  isMegaMenu Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model SiteSetting {
+  key   String @id
+  value String
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String   // "EMAIL", "SMS", "PUSH", "SYSTEM"
+  recipient String
+  subject   String?
+  body      String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model HeroBanner {
+  id              String    @id @default(uuid())
+  heading         String
+  subtitle        String?
+  description     String?
+  buttonText      String    @default("Shop Now")
+  buttonUrl       String    @default("/")
+  desktopImageUrl String
+  tabletImageUrl  String?
+  mobileImageUrl  String?
+  discountBadge   String?
+  overlayColor    String?   @default("rgba(0,0,0,0.3)")
+  duration        Int       @default(5) // in seconds
+  sortOrder       Int       @default(0)
+  isActive        Boolean   @default(true)
+  startDate       DateTime?
+  endDate         DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model PromoCard {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  discountText  String?
+  badgeText     String?
+  buttonText    String    @default("Explore")
+  buttonUrl     String    @default("/")
+  imageUrl      String
+  isActive      Boolean   @default(true)
+  showOnDesktop Boolean   @default(true)
+  showOnLaptop  Boolean   @default(true)
+  showOnTablet  Boolean   @default(true)
+  showOnMobile  Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  startDate     DateTime?
+  endDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
