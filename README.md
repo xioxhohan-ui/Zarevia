@@ -80,25 +80,7 @@ docker compose exec backend npx prisma db push
 docker compose exec backend npx prisma db seed
 ```
 
----
 
-## 🔑 Access Credentials & Portals
-
-### 🛍️ Client Storefront
-Open **[http://localhost:3000](http://localhost:3000)** in your browser to view the customer interface.
-
-- **Customer Login:**
-  - **Email:** `customer@jaraviea.com`
-  - **Password:** `password123`
-
-### 👑 Administrative Portal
-Access the Admin Dashboard by clicking the User icon in the top header or navigating directly to **[http://localhost:3000/admin](http://localhost:3000/admin)** (requires administrator credentials).
-
-- **Administrator Login:**
-  - **Email:** `admin@jaraviea.com`
-  - **Password:** `rifat991`
-
----
 
 ## 🔌 API Documentation Outline
 
