@@ -275,28 +275,44 @@ const INITIAL_DB_DATA: DatabaseSchema = {
   settings: INITIAL_SETTINGS,
 };
 
+// In-memory cache fallback for serverless/read-only environments (e.g. Vercel)
+let _memoryDB: DatabaseSchema | null = null;
+
 export function readDB(): DatabaseSchema {
+  // 1. Try reading from disk
   try {
-    if (!fs.existsSync(DB_FILE_PATH)) {
-      writeDB(INITIAL_DB_DATA);
-      return INITIAL_DB_DATA;
+    if (fs.existsSync(DB_FILE_PATH)) {
+      const data = fs.readFileSync(DB_FILE_PATH, 'utf-8');
+      if (data.trim()) {
+        const parsed = JSON.parse(data) as DatabaseSchema;
+        _memoryDB = parsed; // keep memory cache in sync
+        return parsed;
+      }
     }
-    const data = fs.readFileSync(DB_FILE_PATH, 'utf-8');
-    if (!data.trim()) {
-      writeDB(INITIAL_DB_DATA);
-      return INITIAL_DB_DATA;
-    }
-    return JSON.parse(data) as DatabaseSchema;
   } catch (error) {
-    console.error('Error reading DB, using initial data:', error);
-    return INITIAL_DB_DATA;
+    console.warn('[DB] Filesystem read failed, falling back to memory/initial data:', error);
   }
+
+  // 2. Fall back to in-memory cache (survives within the same serverless invocation)
+  if (_memoryDB) return _memoryDB;
+
+  // 3. Fall back to initial hardcoded data — try to persist to disk but don't crash
+  _memoryDB = INITIAL_DB_DATA;
+  writeDB(INITIAL_DB_DATA); // safe: won't throw even if disk is read-only
+  return INITIAL_DB_DATA;
 }
 
 export function writeDB(data: DatabaseSchema): void {
+  // Always update the in-memory cache so reads are consistent within the process
+  _memoryDB = data;
+
+  // Attempt to persist to disk — silently swallow errors on read-only filesystems
   try {
     fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
   } catch (error) {
-    console.error('Error writing to DB:', error);
+    // On Vercel (and other serverless platforms) the filesystem is read-only.
+    // Data is kept in _memoryDB for the lifetime of this function invocation.
+    console.warn('[DB] Filesystem write skipped (read-only environment):', (error as Error).message);
   }
 }
+
