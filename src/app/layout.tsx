@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { CartProvider } from "../context/CartContext";
 import { LayoutContent } from "./LayoutContent";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "MYRO | Leading Affordable Ladies Shoes Brand in Bangladesh",
@@ -19,6 +20,7 @@ export default function RootLayout({
         <CartProvider>
           <LayoutContent>{children}</LayoutContent>
         </CartProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
