@@ -9,10 +9,19 @@ import prisma from '../lib/prisma';
 
 const router = Router();
 
-// Ensure local public upload directory exists (used for fallback)
+// Local upload directory path — only used as a fallback when Firebase is unavailable.
+// NOTE: Do NOT create the directory at module load time; serverless environments
+// (e.g., AWS Lambda /var/task) have a read-only filesystem.
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+function ensureUploadDir() {
+  try {
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+  } catch (err) {
+    console.warn('[Local Upload] Could not create upload directory (read-only filesystem?):', err);
+  }
 }
 
 // Multer in-memory storage configuration
@@ -51,6 +60,7 @@ router.post('/upload', authenticateToken, requireRole(['SUPERADMIN', 'ADMIN', 'M
       console.log(`[Firebase Storage] Uploaded file: ${filename}`);
     } else {
       // 2. Fall back to local disk storage
+      ensureUploadDir();
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       filename = 'img-' + uniqueSuffix + path.extname(req.file.originalname);
       const filePath = path.join(UPLOAD_DIR, filename);
